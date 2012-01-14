@@ -1,8 +1,7 @@
-from .db_settings import get_model_indexes
-from .utils import commit_locked
-from .expressions import ExpressionEvaluator
-
+import cPickle as pickle
 import datetime
+import decimal
+from functools import wraps
 import sys
 
 from django.db.models.sql import aggregates as sqlaggregates
@@ -10,8 +9,6 @@ from django.db.models.sql.constants import LOOKUP_SEP, MULTI, SINGLE
 from django.db.models.sql.where import AND, OR
 from django.db.utils import DatabaseError, IntegrityError
 from django.utils.tree import Node
-
-from functools import wraps
 
 from google.appengine.api.datastore import Entity, Query, MultiQuery, \
     Put, Get, Delete, Key
@@ -23,9 +20,10 @@ from google.appengine.api.datastore_types import Text, Category, Email, Link, \
 from djangotoolbox.db.basecompiler import NonrelQuery, NonrelCompiler, \
     NonrelInsertCompiler, NonrelUpdateCompiler, NonrelDeleteCompiler
 
-import cPickle as pickle
+from .db_settings import get_model_indexes
+from .expressions import ExpressionEvaluator
+from .utils import commit_locked
 
-import decimal
 
 # Valid query types (a dictionary is used for speedy lookups).
 OPERATORS_MAP = {
