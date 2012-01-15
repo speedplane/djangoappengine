@@ -545,8 +545,8 @@ def to_datetime(value):
 
 def key_from_path(db_table, value):
     """
-    Workaround for GAE choosing not validate integer ids when creating keys.
-    Should be removed if it gets fixed.
+    Workaround for GAE choosing not to validate integer ids when
+    creating keys. Should be removed if it gets fixed.
     """
 
     if isinstance(value, (int, long)):
