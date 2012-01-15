@@ -15,7 +15,7 @@ from google.appengine.api.datastore import Entity, Query, MultiQuery, \
 from google.appengine.api.datastore_errors import Error as GAEError
 from google.appengine.api.datastore_types import Text, Category, Email, Link, \
     PhoneNumber, PostalAddress, Text, Blob, ByteString, GeoPt, IM, Key, \
-    Rating, BlobKey
+    Rating, BlobKey, ValidateInteger
 
 from djangotoolbox.db.basecompiler import NonrelQuery, NonrelCompiler, \
     NonrelInsertCompiler, NonrelUpdateCompiler, NonrelDeleteCompiler
@@ -176,7 +176,7 @@ class GAEQuery(NonrelQuery):
                                         "Did you mean __in=[...]?")
                 if not isinstance(value, (tuple, list)):
                     value = [value]
-                pks = [create_key(db_table, pk) for pk in value if pk]
+                pks = [key_from_path(db_table, pk) for pk in value if pk]
                 if negated:
                     self.excluded_pks = pks
                 else:
@@ -188,21 +188,13 @@ class GAEQuery(NonrelQuery):
                 # not a str. Otherwise the key would be converted back to a
                 # unicode (see convert_value_for_db)
                 db_type = 'gae_key'
-                key_type_error = 'Lookup values on primary keys have to be' \
-                                 'a string or an integer.'
-                if lookup_type == 'range':
-                    if isinstance(value, (list, tuple)) and not (
-                            isinstance(value[0], (basestring, int, long)) and
-                            isinstance(value[1], (basestring, int, long))):
-                        raise DatabaseError(key_type_error)
-                elif not isinstance(value, (basestring, int, long)):
-                    raise DatabaseError(key_type_error)
+
                 # for lookup type range we have to deal with a list
                 if lookup_type == 'range':
-                    value[0] = create_key(db_table, value[0])
-                    value[1] = create_key(db_table, value[1])
+                    value[0] = key_from_path(db_table, value[0])
+                    value[1] = key_from_path(db_table, value[1])
                 else:
-                    value = create_key(db_table, value)
+                    value = key_from_path(db_table, value)
         if lookup_type not in OPERATORS_MAP:
             raise DatabaseError("Lookup type %r isn't supported" % lookup_type)
 
@@ -250,7 +242,7 @@ class GAEQuery(NonrelQuery):
                 if isinstance(value[-1], str):
                     value[-1] = value[-1].decode('utf8')
                 value[-1] += u'\ufffd'
-                value = Key.from_path(*value)
+                value = key_from_path(*value)
             else:
                 value += u'\ufffd'
             self._add_filter(column, '<=', db_type, value)
@@ -493,7 +485,7 @@ class SQLUpdateCompiler(NonrelUpdateCompiler, SQLCompiler):
     @commit_locked
     def update_entity(self, pk):
         gae_query = self.build_query()
-        key = create_key(self.query.get_meta().db_table, pk)
+        key = key_from_path(self.query.get_meta().db_table, pk)
         entity = Get(key)
         if not gae_query.matches_filters(entity):
             return
@@ -550,7 +542,13 @@ def to_datetime(value):
         return datetime.datetime(1970, 1, 1, value.hour, value.minute,
             value.second, value.microsecond)
 
-def create_key(db_table, value):
-    if isinstance(value, (int, long)) and value < 1:
-        return None
+
+def key_from_path(db_table, value):
+    """
+    Workaround for GAE choosing not validate integer ids when creating keys.
+    Should be removed if it gets fixed.
+    """
+
+    if isinstance(value, (int, long)):
+       ValidateInteger(value, 'id')
     return Key.from_path(db_table, value)
